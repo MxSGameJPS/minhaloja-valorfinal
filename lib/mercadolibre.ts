@@ -151,6 +151,22 @@ export async function getItemIdBySku(
     console.error("Method 2 Exception:", e);
   }
 
+  // Tentativa 3: Busca nos itens do usuário usando query (q) em vez de sku
+  console.log("Attempting Method 3 (User Items Search by Query)...");
+  const url3 = `${BASE_URL}/users/${userId}/items/search?q=${sku}&access_token=${accessToken}`;
+  try {
+    const res3 = await fetch(url3);
+    if (res3.ok) {
+      const data3 = await res3.json();
+      console.log("Method 3 Result (Count):", data3.paging?.total);
+      if (data3.results && data3.results.length > 0) {
+        return data3.results[0]; // Retorna ID
+      }
+    }
+  } catch (e) {
+    console.error("Method 3 Exception:", e);
+  }
+
   return null;
 }
 
