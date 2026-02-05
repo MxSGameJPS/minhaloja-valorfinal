@@ -251,46 +251,52 @@ export async function getListingFee(
 
 /**
  * Consulta frete que o vendedor paga
- * Lógica complexa pois depende se o frete é grátis.
+ * Lógica:
+ * 1. Verifica no item.shipping.free_methods (se disponível)
+ * 2. Se não, simula calcula via API de shipping_options/free
  */
 export async function getSellerShippingCost(
   itemId: string,
   accessToken: string,
+  userId: number,
 ): Promise<number> {
-  // A API pública não exibe diretamente "custo para o vendedor" facilmente sem contexto de envio.
-  // Mas se o item oferece frete grátis, o vendedor paga algo.
-  // Podemos tentar simular ou pegar de uma tabela fixa aproximada se não houver endpoint.
-  // Vamos tentar pegar via shipping_options se disponível (geralmente requer zip).
-
-  // Hack: Se não temos o CEP do vendedor/comprador, é difícil ter o EXATO.
-  // O sistema vai retornar 0 se não conseguir e o usuário insere manual.
-  // Mas vamos tentar verificar se existe shipping.free_methods
-
   try {
     const item = await getItemDetails(itemId, accessToken);
     if (!item.shipping.free_shipping) {
-      return 0; // Se não é frete grátis, vendedor paga 0 (comprador paga), exceto configurações especificas.
+      return 0;
     }
 
-    // Console Log deeper logic
-    console.log("Checking Shipping for item:", JSON.stringify(item.shipping));
-
-    // 1. Tentar pegar de free_methods
+    // 1. Tentar free_methods direto do item
     if (item.shipping.free_methods && item.shipping.free_methods.length > 0) {
-      // Pega o primeiro método válido
       for (const method of item.shipping.free_methods) {
         if (method.rule && method.rule.value && method.rule.value > 0) {
-          console.log(
-            "Found shipping cost in free_methods:",
-            method.rule.value,
-          );
           return method.rule.value;
         }
       }
     }
 
-    // 2. Se não achou, tentar endpoint especifico de shipping, se existir
-    // (Lógica reservada)
+    // 2. Fallback: Endpoint de Calculadora de Frete Gratis
+    // GET /users/{user_id}/shipping_options/free?item_id={item_id}
+    // Esse endpoint costuma retornar o custo exato que o vendedor pagará.
+    const calcUrl = `${BASE_URL}/users/${userId}/shipping_options/free?item_id=${itemId}`;
+    const resCalc = await fetch(calcUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (resCalc.ok) {
+      const calcData = await resCalc.json();
+      console.log("Shipping Calc Data:", JSON.stringify(calcData));
+
+      // Empirically, looking for "coverage.all_country.list_cost" or similar
+      // Structure is usually coverage: { all_country: { list_cost: 32.97 } }
+      if (calcData?.coverage?.all_country?.list_cost) {
+        return calcData.coverage.all_country.list_cost;
+      }
+    } else {
+      console.error("Shipping Calc Failed:", await resCalc.text());
+    }
   } catch (e) {
     console.error("Error calculating shipping:", e);
   }

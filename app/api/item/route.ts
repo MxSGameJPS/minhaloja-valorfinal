@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { getItemIdBySku, getItemDetails } from "@/lib/mercadolibre";
+import {
+  getItemIdBySku,
+  getItemDetails,
+  getSellerShippingCost,
+} from "@/lib/mercadolibre";
 import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
@@ -31,12 +35,15 @@ export async function GET(request: Request) {
       );
     }
 
-    // 2. Search Details
+    // 3. Search Details
     const item = await getItemDetails(itemId, accessToken);
 
-    // Tentar identificar o custo do frete (se disponível no objeto shipping)
-    // O objeto MLItem precisa ser expandido para ver se achamos "flat_rate" ou algo assim
-    // Por enquanto vamos retornar o objeto shipping cru para o front decidir ou logar
+    // 4. Calculate Shipping Cost Prediction
+    const shippingCostPrediction = await getSellerShippingCost(
+      itemId,
+      accessToken,
+      Number(userId),
+    );
 
     return NextResponse.json({
       id: item.id,
@@ -47,6 +54,7 @@ export async function GET(request: Request) {
       listing_type_id: item.listing_type_id,
       category_id: item.category_id,
       shipping: item.shipping,
+      shipping_prediction: shippingCostPrediction, // Pass to frontend
     });
   } catch (error: any) {
     console.error("Link Item Error:", error);

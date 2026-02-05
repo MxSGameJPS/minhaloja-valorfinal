@@ -40,8 +40,10 @@ export default function PriceCalculator() {
       if (!res.ok) throw new Error(data.error || "Erro ao buscar item");
 
       setItem(data);
-      // Pre-fill shipping cost if found in free_methods
-      if (
+      // Pre-fill shipping cost logic
+      if (data.shipping_prediction && data.shipping_prediction > 0) {
+        setManualShippingCost(data.shipping_prediction.toString());
+      } else if (
         data.shipping?.free_methods &&
         data.shipping.free_methods.length > 0
       ) {
