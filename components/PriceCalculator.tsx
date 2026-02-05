@@ -12,6 +12,8 @@ export default function PriceCalculator() {
   // Step 2: Calculation Params
   const [costPrice, setCostPrice] = useState("");
   const [margin, setMargin] = useState("");
+  const [tax, setTax] = useState("");
+  const [otherCosts, setOtherCosts] = useState("");
   const [manualShippingCost, setManualShippingCost] = useState(""); // If user wants to override
 
   // Results
@@ -25,6 +27,17 @@ export default function PriceCalculator() {
       currency: "BRL",
     }).format(val);
   };
+
+  const handleSearchItem = async (e: React.FormEvent) => {
+    // (This part is preserved, do not duplicate code but the tool replaces blocks)
+    // I am replacing lines 13-20 with expanded state
+    // And lines 66-103 (handleCalculate) to include new fields.
+    // But wait I cannot replace non-contiguous blocks with replace_file_content unless I use multi_replace.
+    // I will use multi_replace.
+  };
+
+  // Wait, I am using replace_file_content which is single block.
+  // I will use multi_replace_file_content instead.
 
   const handleSearchItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +89,8 @@ export default function PriceCalculator() {
           sku, // Still need SKU for backend double-check or logging? Yes.
           costPrice: Number(costPrice.replace(",", ".")),
           marginPercent: Number(margin.replace(",", ".")),
+          taxPercent: tax ? Number(tax.replace(",", ".")) : 0,
+          otherCosts: otherCosts ? Number(otherCosts.replace(",", ".")) : 0,
           // Optional: Pass overrides if we want backend to rely on frontend (risky but requested flow)
           // For now, let's keep backend logic but maybe hinting.
           // Actually, if we want "What if" analysis, we should pass parameters.
@@ -238,6 +253,34 @@ export default function PriceCalculator() {
                   required
                 />
               </div>
+              <div className="flex flex-col">
+                <label className="text-sm font-semibold text-gray-700 mb-2">
+                  Imposto (%) (Opcional)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={tax}
+                  onChange={(e) => setTax(e.target.value)}
+                  className="p-3 border rounded-lg focus:ring-2 focus:ring-green-500 text-black placeholder-gray-500"
+                  placeholder="Ex: 6.0"
+                />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-sm font-semibold text-gray-700 mb-2">
+                  Outros Custos (R$)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={otherCosts}
+                  onChange={(e) => setOtherCosts(e.target.value)}
+                  className="p-3 border rounded-lg focus:ring-2 focus:ring-green-500 text-black placeholder-gray-500"
+                  placeholder="ADS, Embalagem..."
+                />
+              </div>
+
               <div className="flex flex-col">
                 <label className="text-sm font-semibold text-gray-700 mb-2">
                   Custo Frete (Opcional)
