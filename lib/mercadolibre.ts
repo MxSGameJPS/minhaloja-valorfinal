@@ -36,6 +36,10 @@ export interface MLItem {
   pictures: { url: string }[];
   attributes: { id: string; value_name: string }[];
   variations?: any[];
+  status?: string;
+  sub_status?: string[];
+  tags?: string[];
+  catalog_listing?: boolean;
 }
 
 export interface MLShippingOption {
@@ -331,8 +335,17 @@ export async function updateItemPrice(
   newPrice: number,
   accessToken: string,
 ): Promise<void> {
-  // 1. Fetch item to check for variations
+  // 1. Fetch item to check for variations and diagnostics
   const item = await getItemDetails(itemId, accessToken);
+
+  // DIAGNOSTICS LOGGING
+  console.log("--- ITEM DIAGNOSTICS ---");
+  console.log(`ItemId: ${itemId}`);
+  console.log(`Status: ${item.status}`);
+  console.log(`Sub-status: ${JSON.stringify(item.sub_status)}`);
+  console.log(`Tags: ${JSON.stringify(item.tags)}`);
+  console.log(`Catalog Listing: ${item.catalog_listing}`);
+  console.log("------------------------");
 
   const url = `${BASE_URL}/items/${itemId}`;
   let body: any = {};
@@ -346,7 +359,7 @@ export async function updateItemPrice(
       variations: item.variations.map((v: any) => ({
         id: v.id,
         price: newPrice,
-        currency_id: item.currency_id || "BRL", // Garantir currency
+        currency_id: item.currency_id || "BRL",
       })),
     };
   } else {
@@ -354,7 +367,7 @@ export async function updateItemPrice(
     console.log(`Item ${itemId} has NO variations. Updating root price.`);
     body = {
       price: newPrice,
-      currency_id: item.currency_id || "BRL", // Adicionando currency_id
+      currency_id: item.currency_id || "BRL",
     };
   }
 
@@ -373,14 +386,13 @@ export async function updateItemPrice(
     const errorData = await res.json();
     console.error("Update failed. Error Data:", JSON.stringify(errorData));
 
-    // Fallback Only if 400 or 403.
-    // Tentar o oposto: se tentamos VARIACOES e falhou, tenta RAIZ (como antes).
+    // Check for Fallback Conditions
     const wasVariations = !!(item.variations && item.variations.length > 0);
+    const isPolicyError =
+      errorData.status === 403 || errorData.blocked_by === "PolicyAgent";
 
-    if (
-      wasVariations &&
-      (errorData.status === 400 || errorData.status === 403)
-    ) {
+    // Only attempt fallback if it makes sense (e.g. 400 Bad Request might be format, 403 might be policy that allows root update)
+    if (wasVariations && (errorData.status === 400 || isPolicyError)) {
       console.warn("Retrying with root price update as fallback...");
       const fallbackBody = {
         price: newPrice,
@@ -401,18 +413,34 @@ export async function updateItemPrice(
         return;
       }
 
-      // Se falhar o fallback, logar o erro do fallback
       const err2 = await res2.json();
       console.error("Fallback failed error:", JSON.stringify(err2));
     }
 
-    // Se for erro de política, lançar mensagem amigável
-    if (
-      errorData.code === "PA_UNAUTHORIZED_RESULT_FROM_POLICIES" ||
-      errorData.blocked_by === "PolicyAgent"
-    ) {
+    // Friendly Error Logic based on Diagnostics
+    if (isPolicyError) {
+      let reason = "Política de Preços";
+      const tags = item.tags || [];
+      const subStatus = item.sub_status || [];
+
+      if (
+        tags.includes("locked_by_promotion") ||
+        tags.includes("campaign_related")
+      ) {
+        reason = "Item em Campanha/Promoção";
+      } else if (tags.includes("catalog_listing") || item.catalog_listing) {
+        reason = "Anúncio de Catálogo (Gerenciado pelo ML)";
+      } else if (
+        subStatus.includes("suspended") ||
+        subStatus.includes("banned")
+      ) {
+        reason = "Anúncio Suspenso/Banido";
+      } else if (subStatus.includes("waiting_for_patch")) {
+        reason = "Aguardando Correção (Item Travado)";
+      }
+
       throw new Error(
-        "O Mercado Livre bloqueou a atualização (Política de Preços). Verifique se o item está em promoção, campanha ou se a mudança de preço viola regras da categoria.",
+        `Atualização bloqueada pelo Mercado Livre (${reason}). Verifique campanhas, catálogo ou status no painel.`,
       );
     }
 
