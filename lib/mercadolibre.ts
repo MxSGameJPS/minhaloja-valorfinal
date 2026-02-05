@@ -107,23 +107,48 @@ export async function getItemIdBySku(
   accessToken: string,
   userId: number,
 ): Promise<string | null> {
-  // Busca nos itens do usuário pelo SKU.
-  // Endpoint de busca: /users/{user_id}/items/search?sku={sku}
-  // Ou via Global Search com seller_id.
+  console.log(`Searching for SKU: ${sku} for User: ${userId}`);
 
-  // Tentativa 1: Busca específica do vendedor
-  const url = `${BASE_URL}/users/${userId}/items/search?sku=${sku}&access_token=${accessToken}`;
+  // Tentativa 1: Busca específica do vendedor via endpoint de items/search
+  // Doc: https://developers.mercadolibre.com.ar/en_US/manage-products-search
+  const url1 = `${BASE_URL}/users/${userId}/items/search?sku=${sku}&access_token=${accessToken}`;
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    // Fallback ou erro
-    console.error("Error searching item by SKU", await res.text());
-    return null;
+  try {
+    const res1 = await fetch(url1);
+
+    if (res1.ok) {
+      const data1 = await res1.json();
+      console.log("Method 1 Result:", JSON.stringify(data1));
+      if (data1.results && data1.results.length > 0) {
+        return data1.results[0];
+      }
+    } else {
+      console.error("Method 1 Failed:", await res1.text());
+    }
+  } catch (e) {
+    console.error("Method 1 Exception:", e);
   }
 
-  const data = await res.json();
-  if (data.results && data.results.length > 0) {
-    return data.results[0]; // Retorna o primeiro ID encontrado
+  // Tentativa 2: Busca via Global Search filtrando por seller (Fallback)
+  console.log("Attempting Method 2 (Global Search)...");
+  // Nota: access_token pode ajudar a achar itens não ativos se for do proprio seller
+  const url2 = `${BASE_URL}/sites/MLB/search?seller_id=${userId}&q=${sku}`;
+  try {
+    const res2 = await fetch(url2, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (res2.ok) {
+      const data2 = await res2.json();
+      console.log("Method 2 Result (Count):", data2.paging?.total);
+      if (data2.results && data2.results.length > 0) {
+        // Retorna o primeiro ID encontrado
+        return data2.results[0].id;
+      }
+    }
+  } catch (e) {
+    console.error("Method 2 Exception:", e);
   }
 
   return null;
