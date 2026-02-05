@@ -409,12 +409,46 @@ export async function updateItemPrice(
       });
 
       if (res2.ok) {
-        console.log("Fallback update successful.");
+        console.log("Fallback (Root) update successful.");
         return;
       }
 
       const err2 = await res2.json();
-      console.error("Fallback failed error:", JSON.stringify(err2));
+      console.error("Fallback (Root) failed error:", JSON.stringify(err2));
+
+      // Fallback Level 2: Try the /prices API (New Pricing API)
+      // Docs: https://developers.mercadolivre.com.br/pt_br/api-de-precos
+      console.warn("Retrying with /prices API (Level 2 Fallback)...");
+      const pricesUrl = `${BASE_URL}/items/${itemId}/prices`;
+      const pricesBody = {
+        prices: [
+          {
+            type: "standard",
+            amount: newPrice,
+            currency_id: item.currency_id || "BRL",
+          },
+        ],
+      };
+
+      const res3 = await fetch(pricesUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(pricesBody),
+      });
+
+      if (res3.ok) {
+        console.log("Fallback (Prices API) update successful.");
+        return;
+      }
+
+      const err3 = await res3.json();
+      console.error(
+        "Fallback (Prices API) failed error:",
+        JSON.stringify(err3),
+      );
     }
 
     // Friendly Error Logic based on Diagnostics
@@ -440,7 +474,7 @@ export async function updateItemPrice(
       }
 
       throw new Error(
-        `Atualização bloqueada pelo Mercado Livre (${reason}). Verifique campanhas, catálogo ou status no painel.`,
+        `Atualização bloqueada pelo Mercado Livre (${reason}). O item pode estar em uma promoção travada ou violar regras de preço (Mín/Máx). Verifique se o item participa de Deal/Oferta.`,
       );
     }
 
