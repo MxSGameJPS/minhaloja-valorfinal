@@ -109,6 +109,12 @@ export async function getItemIdBySku(
 ): Promise<string | null> {
   console.log(`Searching for SKU: ${sku} for User: ${userId}`);
 
+  // Hack: Permitir input direto de MLB ID
+  if (sku.toUpperCase().startsWith("MLB")) {
+    console.log("Input detected as MLB ID, skipping search.");
+    return sku.toUpperCase();
+  }
+
   // Tentativa 1: Busca específica do vendedor via endpoint de items/search
   // Doc: https://developers.mercadolibre.com.ar/en_US/manage-products-search
   const url1 = `${BASE_URL}/users/${userId}/items/search?sku=${sku}&access_token=${accessToken}`;
