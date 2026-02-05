@@ -161,8 +161,10 @@ export async function POST(request: Request) {
                 preco_custo, 
                 margem_lucro, 
                 comissao_ml, 
-                valor_frete
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                valor_frete,
+                valor_lucro,
+                preco_venda_recomendado
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `;
       const values = [
         itemId,
@@ -173,6 +175,8 @@ export async function POST(request: Request) {
         marginPercent,
         finalOutcome.breakdown.mlFee,
         finalOutcome.breakdown.shipping,
+        finalOutcome.breakdown.profit,
+        finalOutcome.price,
       ];
 
       // Execute async but don't block response too much, or await to ensure data integrity

@@ -23,24 +23,21 @@ export default function ReportDownload() {
       doc.text("Relatório de Cálculos - ValorFinal", 14, 15);
 
       const tableColumn = [
-        "Data",
+        "Data/Hora",
         "SKU/MLB",
-        "Valor Atual",
-        "Tipo",
         "Custo",
-        "Margem %",
+        "Margem",
         "Comissão",
-        "Frete Calc",
+        "Frete",
+        "Lucro R$",
+        "Preço Rec.",
       ];
 
       const tableRows = data.map((item: any) => [
-        new Date(item.created_at).toLocaleDateString("pt-BR"),
+        new Date(item.created_at).toLocaleDateString("pt-BR") +
+          " " +
+          new Date(item.created_at).toLocaleTimeString("pt-BR"),
         item.sku_mlb,
-        new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(item.valor_atual),
-        item.tipo_anuncio,
         new Intl.NumberFormat("pt-BR", {
           style: "currency",
           currency: "BRL",
@@ -54,12 +51,23 @@ export default function ReportDownload() {
           style: "currency",
           currency: "BRL",
         }).format(item.valor_frete),
+        new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }).format(item.valor_lucro || 0),
+        new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }).format(item.preco_venda_recomendado || 0),
       ]);
 
       autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 20,
+        theme: "grid",
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [22, 163, 74] },
       });
 
       doc.save("relatorio_valorideal.pdf");
@@ -90,6 +98,8 @@ export default function ReportDownload() {
           "Margem Lucro (%)": item.margem_lucro,
           "Comissão ML": item.comissao_ml,
           "Valor Frete Cobrado": item.valor_frete,
+          "Lucro R$": item.valor_lucro,
+          "Preço Venda Rec.": item.preco_venda_recomendado,
         })),
       );
 
