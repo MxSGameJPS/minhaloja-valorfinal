@@ -10,7 +10,7 @@ import { cookies } from "next/headers";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { sku, costPrice, marginPercent } = body; // marginPercent in number (e.g. 20 for 20%)
+    const { sku, costPrice, marginPercent, manualShipping } = body; // manualShipping optional number
 
     const cookieStore = await cookies();
     const accessToken = cookieStore.get("ml_access_token")?.value;
@@ -37,18 +37,14 @@ export async function POST(request: Request) {
     const { listing_type_id, category_id, price: currentPrice } = item;
 
     // 3. Get Shipping Cost (Seller Pays)
-    // If the current listing is < 79, the API might say Free Shipping is false.
-    // We need the potential shipping cost if we *were* to sell > 79.
-    // Or simply use the current item's shipping configuration.
-    // For accurate pricing, we should probably estimate the shipping cost if it becomes > 79.
-    // Here we rely on the helper which checks current status or returns 0.
-    // Note: If the user intends to change the price to > 79, they *will* offer free shipping forcibly by ML policies for most categories.
-    // So we should try to get the weight/dimensions based cost if possible.
-    // For MVP, we use the helper.
-    const shippingCost = await getSellerShippingCost(itemId, accessToken);
-
-    // If helper returns 0 but we end up calculating a price > 79, we might be underestimating.
-    // We will return the shipping cost used so the user can audit.
+    // If manualShipping is provided (user override), use it.
+    // Otherwise, fetch from API.
+    let shippingCost = 0;
+    if (manualShipping !== undefined && manualShipping !== null) {
+      shippingCost = Number(manualShipping);
+    } else {
+      shippingCost = await getSellerShippingCost(itemId, accessToken);
+    }
 
     // 4. Determine Fee Percentage (Rate)
     // Check fee for a reference price of 100 BRL

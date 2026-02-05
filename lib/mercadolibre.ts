@@ -13,6 +13,7 @@ export interface MLItem {
   id: string;
   title: string;
   price: number;
+  permalink: string;
   base_price: number;
   currency_id: string;
   available_quantity: number;
@@ -207,15 +208,39 @@ export async function getListingFee(
   listingTypeId: string,
   categoryId: string,
 ): Promise<number> {
+  const type = listingTypeId
+    .toLowerCase()
+    .replace("gold_special", "gold_special")
+    .replace("gold_pro", "gold_pro"); // Ensure clean id
+
   // endpoint: /sites/MLB/listing_prices?price={price}&listing_type_id={type}&category_id={cat}
-  const url = `${BASE_URL}/sites/MLB/listing_prices?price=${price}&listing_type_id=${listingTypeId}&category_id=${categoryId}`;
+  const url = `${BASE_URL}/sites/MLB/listing_prices?price=${price}&listing_type_id=${type}&category_id=${categoryId}`;
 
-  const res = await fetch(url);
-  if (!res.ok) return 0;
+  console.log(
+    `Calculating Fee: Price=${price}, Type=${type}, Cat=${categoryId}`,
+  );
 
-  const data = await res.json();
-  // data pode ser um array ou objeto dependendo do endpoint, geralmente retorna objeto de preço
-  return data.sale_fee_amount || 0;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("Fee error:", await res.text());
+      return 0;
+    }
+
+    const data = await res.json();
+    console.log("Fee Data:", JSON.stringify(data));
+
+    // Check structure. Sometimes it returns an array [ { listing_type_id, sale_fee_amount } ]
+    if (Array.isArray(data)) {
+      const match = data.find((d) => d.listing_type_id === type);
+      return match ? match.sale_fee_amount : 0;
+    }
+
+    return data.sale_fee_amount || 0;
+  } catch (e) {
+    console.error("Listing Fee Exception:", e);
+    return 0;
+  }
 }
 
 /**
