@@ -78,12 +78,12 @@ export async function POST(request: Request) {
 
     const suggestedPriceHigh = (Number(costPrice) + shippingCost) / divisor;
 
-    // Scenario B: Price < 79 (Seller Pays Fixed Fee 6.00, No Shipping)
-    // Price = Cost + (Price * Rate) + 6.00 + Price*(Margin/100)
-    // Price (1 - Rate - Margin/100) = Cost + 6.00
-    // Price = (Cost + 6.00) / divisor;
+    // Scenario B: Price < 79 (Seller Pays Fixed Fee 6.75, No Shipping)
+    // Price = Cost + (Price * Rate) + 6.75 + Price*(Margin/100)
+    // Price (1 - Rate - Margin/100) = Cost + 6.75
+    // Price = (Cost + 6.75) / divisor;
 
-    const suggestedPriceLow = (Number(costPrice) + 6) / divisor;
+    const suggestedPriceLow = (Number(costPrice) + 6.75) / divisor;
 
     // Decide which one applies
     // We check if suggestedPriceHigh is actually >= 79.
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
           baseCost: Number(costPrice),
           mlFee: suggestedPriceLow * feeRate,
           shipping: 0,
-          fixedFee: 6,
+          fixedFee: 6.75,
           profit: suggestedPriceLow * marginRate,
         },
       };
