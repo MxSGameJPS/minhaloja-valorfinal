@@ -28,6 +28,46 @@ export default function PriceCalculator({
 
   // Modal State
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
+
+  const handleUpdatePrice = async () => {
+    if (!result || !item) return;
+
+    setIsUpdating(true);
+    setUpdateSuccess(null);
+    setError("");
+
+    try {
+      const res = await fetch("/api/update-price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: item.id,
+          newPrice: result.calculation.price,
+          newWholesalePrice: result.calculation.wholesalePrice,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao atualizar preço");
+      }
+
+      setUpdateSuccess(data.message || "Preço atualizado com sucesso!");
+      setTimeout(() => {
+        setShowUpdateModal(false);
+        setUpdateSuccess(null);
+      }, 3000);
+    } catch (err: any) {
+      setError(err.message);
+      setShowUpdateModal(false);
+      alert(`Erro: ${err.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -508,41 +548,69 @@ export default function PriceCalculator({
         </div>
       )}
 
-      {/* Modal Overlay */}
+      {/* Modal Overlay Update */}
       {showUpdateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-                <svg
-                  className="h-6 w-6 text-blue-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+            {updateSuccess ? (
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                  <svg
+                    className="h-6 w-6 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Sucesso!
+                </h3>
+                <p className="text-gray-500 mb-6">{updateSuccess}</p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                Funcionalidade em Desenvolvimento
-              </h3>
-              <p className="text-gray-500 mb-6">
-                A atualização automática de preços no Mercado Livre será
-                implementada após a aprovação final. Por enquanto, este botão é
-                apenas demonstrativo e nenhuma alteração real será feita.
-              </p>
-              <button
-                onClick={() => setShowUpdateModal(false)}
-                className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-700 transition-all"
-              >
-                Entendido
-              </button>
-            </div>
+            ) : (
+              <div className="text-center">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">
+                  Confirmar Atualização?
+                </h3>
+                <p className="text-gray-500 mb-6 text-left text-sm">
+                  Isso alterará o preço no Mercado Livre para:
+                  <br />
+                  <span className="font-bold text-black block mt-1">
+                    Preço Principal:{" "}
+                    {formatCurrency(result?.calculation.price || 0)}
+                  </span>
+                  {result?.calculation.wholesalePrice && (
+                    <span className="font-bold text-purple-700 block mt-1">
+                      Ap. Atacado (2un):{" "}
+                      {formatCurrency(result.calculation.wholesalePrice)}
+                    </span>
+                  )}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowUpdateModal(false)}
+                    disabled={isUpdating}
+                    className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 px-4 rounded-xl hover:bg-gray-200 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleUpdatePrice}
+                    disabled={isUpdating}
+                    className="flex-1 bg-green-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-green-700 transition-all flex justify-center items-center gap-2"
+                  >
+                    {isUpdating ? "Atualizando..." : "Confirmar"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

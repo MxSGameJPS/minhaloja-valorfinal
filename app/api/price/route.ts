@@ -93,9 +93,12 @@ export async function POST(request: Request) {
 
     let finalOutcome: any = null;
 
+    // Helper for rounding to .99
+    const roundTo99 = (val: number) => Math.floor(val) + 0.99;
+
     if (suggestedPriceHigh >= 79) {
       finalOutcome = {
-        price: suggestedPriceHigh,
+        price: roundTo99(suggestedPriceHigh),
         scenario: "> 79",
         breakdown: {
           baseCost: Number(costPrice),
@@ -108,8 +111,9 @@ export async function POST(request: Request) {
         },
       };
     } else {
+      const priceLow = roundTo99(suggestedPriceLow);
       finalOutcome = {
-        price: suggestedPriceLow,
+        price: priceLow,
         scenario: "< 79",
         breakdown: {
           baseCost: Number(costPrice),
@@ -122,9 +126,13 @@ export async function POST(request: Request) {
         },
       };
 
-      if (suggestedPriceLow >= 79) {
+      if (priceLow >= 79) {
+        // Recalculate based on High scenario if rounding pushed it up or original logic did
+        // Actually if original 'suggestedPriceLow' >= 79, we would have problems with logic boundaries.
+        // But here we just switch to high scenario if needed.
+        const priceHigh = roundTo99(suggestedPriceHigh);
         finalOutcome = {
-          price: suggestedPriceHigh,
+          price: priceHigh,
           scenario: "> 79 (Forced by Margin)",
           breakdown: {
             baseCost: Number(costPrice),
@@ -141,7 +149,8 @@ export async function POST(request: Request) {
 
     // New: Calculate Wholesale Price (5% discount for 2+ units)
     // Assuming this means the unit price becomes 5% less
-    const wholesalePrice = finalOutcome.price * 0.95;
+    // Also rounded to .99
+    const wholesalePrice = roundTo99(finalOutcome.price * 0.95);
     finalOutcome.wholesalePrice = wholesalePrice;
 
     // Save to Database (Supabase)

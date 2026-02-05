@@ -321,3 +321,32 @@ export async function getSellerShippingCost(
 
   return 0;
 }
+
+/**
+ * Atualiza o preço base do item
+ */
+export async function updateItemPrice(
+  itemId: string,
+  newPrice: number,
+  accessToken: string,
+): Promise<void> {
+  const url = `${BASE_URL}/items/${itemId}`;
+
+  const body = {
+    price: newPrice,
+  };
+
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(`Failed to update price: ${JSON.stringify(errorData)}`);
+  }
+}
