@@ -40,9 +40,18 @@ export default function PriceCalculator() {
       if (!res.ok) throw new Error(data.error || "Erro ao buscar item");
 
       setItem(data);
-      // Pre-fill shipping cost if strictly zero? No, user enters.
-      // But maybe we detected something?
-      if (data.shipping?.cost) {
+      // Pre-fill shipping cost if found in free_methods
+      if (
+        data.shipping?.free_methods &&
+        data.shipping.free_methods.length > 0
+      ) {
+        const method = data.shipping.free_methods.find(
+          (m: any) => m.rule && m.rule.value,
+        );
+        if (method) {
+          setManualShippingCost(method.rule.value.toString());
+        }
+      } else if (data.shipping?.cost) {
         setManualShippingCost(data.shipping.cost.toString());
       }
     } catch (err: any) {

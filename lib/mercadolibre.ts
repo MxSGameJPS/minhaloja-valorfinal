@@ -24,7 +24,13 @@ export interface MLItem {
     mode: string;
     tags: string[];
     logistic_type: string;
-    store_pick_up: boolean;
+    free_methods?: {
+      id: number;
+      rule: {
+        free_mode: string;
+        value: number | null;
+      };
+    }[];
   };
   dimensions: string; // "10x10x10,500"
   pictures: { url: string }[];
@@ -260,15 +266,34 @@ export async function getSellerShippingCost(
   // O sistema vai retornar 0 se não conseguir e o usuário insere manual.
   // Mas vamos tentar verificar se existe shipping.free_methods
 
-  const item = await getItemDetails(itemId, accessToken);
-  if (!item.shipping.free_shipping) {
-    return 0; // Se não é frete grátis, vendedor paga 0 (comprador paga), exceto configurações especificas.
-  }
+  try {
+    const item = await getItemDetails(itemId, accessToken);
+    if (!item.shipping.free_shipping) {
+      return 0; // Se não é frete grátis, vendedor paga 0 (comprador paga), exceto configurações especificas.
+    }
 
-  // Tentar buscar valor do frete grátis (subsídio)
-  // Infelizmente sem autenticação específica em endpoints de "shipping costs" do user, é difícil.
-  // Vamos assumir que retornaremos 0 e o frontend avisa, ou retornamos um valor fixo estimado se desejar.
-  // Pelo prompt "O backend DEVE consultar", vou deixar a função preparada.
+    // Console Log deeper logic
+    console.log("Checking Shipping for item:", JSON.stringify(item.shipping));
+
+    // 1. Tentar pegar de free_methods
+    if (item.shipping.free_methods && item.shipping.free_methods.length > 0) {
+      // Pega o primeiro método válido
+      for (const method of item.shipping.free_methods) {
+        if (method.rule && method.rule.value && method.rule.value > 0) {
+          console.log(
+            "Found shipping cost in free_methods:",
+            method.rule.value,
+          );
+          return method.rule.value;
+        }
+      }
+    }
+
+    // 2. Se não achou, tentar endpoint especifico de shipping, se existir
+    // (Lógica reservada)
+  } catch (e) {
+    console.error("Error calculating shipping:", e);
+  }
 
   return 0;
 }
