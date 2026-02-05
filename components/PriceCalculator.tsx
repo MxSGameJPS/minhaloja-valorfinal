@@ -115,7 +115,7 @@ export default function PriceCalculator() {
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 placeholder="Digite o SKU ou MLB..."
-                className="flex-1 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-lg"
+                className="flex-1 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-lg text-black placeholder-gray-500"
                 required
               />
               <button
@@ -208,7 +208,7 @@ export default function PriceCalculator() {
                   step="0.01"
                   value={costPrice}
                   onChange={(e) => setCostPrice(e.target.value)}
-                  className="p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="p-3 border rounded-lg focus:ring-2 focus:ring-green-500 text-black placeholder-gray-500"
                   placeholder="0.00"
                   required
                 />
@@ -222,7 +222,7 @@ export default function PriceCalculator() {
                   step="0.1"
                   value={margin}
                   onChange={(e) => setMargin(e.target.value)}
-                  className="p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="p-3 border rounded-lg focus:ring-2 focus:ring-green-500 text-black placeholder-gray-500"
                   placeholder="Ex: 20"
                   required
                 />
@@ -236,7 +236,7 @@ export default function PriceCalculator() {
                   step="0.01"
                   value={manualShippingCost}
                   onChange={(e) => setManualShippingCost(e.target.value)}
-                  className="p-3 border rounded-lg focus:ring-2 focus:ring-green-500 bg-white"
+                  className="p-3 border rounded-lg focus:ring-2 focus:ring-green-500 bg-white text-black placeholder-gray-500"
                   placeholder={
                     item.shipping.free_shipping ? "Insira o Custo" : "0.00"
                   }
