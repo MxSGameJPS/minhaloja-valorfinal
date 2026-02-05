@@ -448,11 +448,18 @@ export async function updateItemPrice(
         return;
       }
 
-      const err3 = await res3.json();
-      console.error(
-        "Fallback (Prices API) failed error:",
-        JSON.stringify(err3),
-      );
+      const err3 = await res3.text(); // Read as text first to avoid crash
+      try {
+        const jsonErr = JSON.parse(err3);
+        console.error(
+          "Fallback (Prices API) failed error:",
+          JSON.stringify(jsonErr),
+        );
+      } catch (e) {
+        console.error(
+          `Fallback (Prices API) failed (Non-JSON): Status ${res3.status}. Body: ${err3}`,
+        );
+      }
     }
 
     // Friendly Error Logic based on Diagnostics
