@@ -246,6 +246,37 @@ export default function PriceCalculator({
                   </span>
                 )}
               </div>
+              {/* Competition / Catalog Warnings */}
+              {item.catalog_listing && (
+                <div className="mt-3 bg-blue-50 border border-blue-200 rounded p-2 text-sm flex flex-col gap-1">
+                  <span className="font-bold text-blue-800">
+                    📦 Anúncio de Catálogo
+                  </span>
+                  {item.catalog_competition ? (
+                    <div className="text-blue-700">
+                      Status:{" "}
+                      <span className="font-semibold">
+                        {item.catalog_competition.status}
+                      </span>{" "}
+                      <br />
+                      {item.catalog_competition.price_to_win && (
+                        <>
+                          Preço para Ganhar (Buy Box):{" "}
+                          <span className="font-bold text-green-700">
+                            {formatCurrency(
+                              item.catalog_competition.price_to_win,
+                            )}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-blue-600 text-xs">
+                      Dados de concorrência indisponíveis.
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

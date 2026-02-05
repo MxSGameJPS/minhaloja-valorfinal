@@ -3,6 +3,7 @@ import {
   getItemIdBySku,
   getItemDetails,
   getSellerShippingCost,
+  getCatalogCompetition,
 } from "@/lib/mercadolibre";
 import { getValidAccessToken } from "@/lib/auth";
 import { cookies } from "next/headers";
@@ -63,6 +64,10 @@ export async function GET(request: Request) {
       sub_status: item.sub_status,
       tags: item.tags,
       catalog_listing: item.catalog_listing,
+      // Competition Data (if catalog)
+      catalog_competition: item.catalog_listing
+        ? await getCatalogCompetition(itemId, accessToken)
+        : null,
     });
   } catch (error: any) {
     console.error("Link Item Error:", error);

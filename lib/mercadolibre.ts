@@ -328,6 +328,31 @@ export async function getSellerShippingCost(
 }
 
 /**
+ * Busca dados de concorrência do catálogo (Price To Win)
+ */
+export async function getCatalogCompetition(
+  itemId: string,
+  accessToken: string,
+): Promise<any> {
+  try {
+    const url = `${BASE_URL}/items/${itemId}/catalog_listing_competition`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+    return null;
+  } catch (e) {
+    console.error("Error fetching catalog competition:", e);
+    return null;
+  }
+}
+
+/**
  * Atualiza o preço base do item
  */
 export async function updateItemPrice(
@@ -415,51 +440,6 @@ export async function updateItemPrice(
 
       const err2 = await res2.json();
       console.error("Fallback (Root) failed error:", JSON.stringify(err2));
-    }
-
-    // Fallback Level 2: Try the /prices API (For ALL items if Policy Error or 400)
-    if (isPolicyError || errorData.status === 400) {
-      console.warn("Retrying with /prices API (Level 2 Fallback)...");
-      const pricesUrl = `${BASE_URL}/items/${itemId}/prices`;
-      const pricesBody = {
-        prices: [
-          {
-            type: "standard",
-            amount: newPrice,
-            currency_id: item.currency_id || "BRL",
-            conditions: {
-              context_restrictions: ["channel_marketplace"],
-            },
-          },
-        ],
-      };
-
-      const res3 = await fetch(pricesUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(pricesBody),
-      });
-
-      if (res3.ok) {
-        console.log("Fallback (Prices API) update successful.");
-        return;
-      }
-
-      const err3 = await res3.text(); // Read as text first to avoid crash
-      try {
-        const jsonErr = JSON.parse(err3);
-        console.error(
-          "Fallback (Prices API) failed error:",
-          JSON.stringify(jsonErr),
-        );
-      } catch (e) {
-        console.error(
-          `Fallback (Prices API) failed (Non-JSON): Status ${res3.status}. Body: ${err3}`,
-        );
-      }
     }
 
     // Friendly Error Logic based on Diagnostics
