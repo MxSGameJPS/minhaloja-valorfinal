@@ -672,15 +672,23 @@ export default function PriceCalculator({
                 <p className="text-gray-500 mb-6 text-left text-sm">
                   Isso alterará o preço no Mercado Livre para:
                   <br />
-                  <span className="font-bold text-black block mt-1">
+                  <span className="font-bold text-black block mt-2 text-lg">
                     Preço Principal:{" "}
                     {formatCurrency(result?.calculation.price || 0)}
                   </span>
                   {result?.calculation.wholesalePrice && (
-                    <span className="font-bold text-purple-700 block mt-1">
-                      Ap. Atacado (2un):{" "}
-                      {formatCurrency(result.calculation.wholesalePrice)}
-                    </span>
+                    <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                      <span className="font-bold text-purple-700 block text-xs uppercase tracking-wide">
+                        Sugestão de Atacado (2un)
+                      </span>
+                      <span className="text-purple-900 font-medium">
+                        {formatCurrency(result.calculation.wholesalePrice)}
+                      </span>
+                      <p className="text-xs text-purple-600 mt-1">
+                        *Aplique este valor manualmente no painel, se desejar. A
+                        API atualizará apenas o preço principal.
+                      </p>
+                    </div>
                   )}
                 </p>
                 <div className="flex gap-3">
