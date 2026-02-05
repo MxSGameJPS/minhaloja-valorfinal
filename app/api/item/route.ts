@@ -4,6 +4,7 @@ import {
   getItemDetails,
   getSellerShippingCost,
 } from "@/lib/mercadolibre";
+import { getValidAccessToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
@@ -16,10 +17,12 @@ export async function GET(request: Request) {
 
   try {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("ml_access_token")?.value;
     // Prioritize configured SELLER_ID (Store Owner) over the logged-in user's ID
     const userId =
       process.env.SELLER_ID || cookieStore.get("ml_user_id")?.value;
+
+    // Use helper to get a valid token (refreshing if necessary)
+    const accessToken = await getValidAccessToken();
 
     if (!accessToken || !userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

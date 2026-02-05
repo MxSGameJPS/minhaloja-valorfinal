@@ -5,6 +5,7 @@ import {
   getListingFee,
   getSellerShippingCost,
 } from "@/lib/mercadolibre";
+import { getValidAccessToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { query } from "@/lib/db";
 
@@ -22,10 +23,11 @@ export async function POST(request: Request) {
     // taxPercent (number), otherCosts (number, R$)
 
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get("ml_access_token")?.value;
     // Prioritize configured SELLER_ID (Store Owner) over the logged-in user's ID
     const userId =
       process.env.SELLER_ID || cookieStore.get("ml_user_id")?.value;
+
+    const accessToken = await getValidAccessToken();
 
     if (!accessToken || !userId) {
       return NextResponse.json(
