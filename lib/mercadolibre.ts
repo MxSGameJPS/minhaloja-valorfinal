@@ -373,6 +373,32 @@ export async function updateItemPrice(
     const errorData = await res.json();
     console.error("Update failed with body:", JSON.stringify(body));
     console.error("Error response:", JSON.stringify(errorData));
+
+    // Fallback: Se falhar com variações, tenta atualizar via raiz (as vezes a política exige isso ou vice-versa)
+    if (
+      item.variations &&
+      item.variations.length > 0 &&
+      (errorData.status === 400 || errorData.status === 403)
+    ) {
+      console.warn("Retrying with root price update as fallback...");
+      const res2 = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ price: newPrice }),
+      });
+
+      if (res2.ok) {
+        console.log("Fallback update successful.");
+        return;
+      } else {
+        const errorData2 = await res2.json();
+        console.error("Fallback failed too:", JSON.stringify(errorData2));
+      }
+    }
+
     throw new Error(`Failed to update price: ${JSON.stringify(errorData)}`);
   }
 }
