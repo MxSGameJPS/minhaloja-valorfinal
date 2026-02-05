@@ -14,51 +14,51 @@ export default function ReportDownload() {
     return res.json();
   };
 
+  const formatCurrency = (val: any) => {
+    if (typeof val !== "number") return val;
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(val);
+  };
+
   const handleDownloadPDF = async () => {
     setLoading(true);
     try {
       const data = await fetchData();
-      const doc = new jsPDF();
+      // Orientation: "l" for landscape
+      const doc = new jsPDF("l");
 
       doc.text("Relatório de Cálculos - ValorFinal", 14, 15);
 
       const tableColumn = [
         "Data/Hora",
         "SKU/MLB",
+        "V. Atual",
+        "Tipo",
+        "Envio",
         "Custo",
         "Margem",
         "Comissão",
         "Frete",
-        "Lucro R$",
+        "Lucro",
         "Preço Rec.",
       ];
 
       const tableRows = data.map((item: any) => [
         new Date(item.created_at).toLocaleDateString("pt-BR") +
           " " +
-          new Date(item.created_at).toLocaleTimeString("pt-BR"),
+          new Date(item.created_at).toLocaleTimeString("pt-BR").slice(0, 5),
         item.sku_mlb,
-        new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(item.preco_custo),
+        formatCurrency(item.valor_atual),
+        item.tipo_anuncio,
+        item.tipo_envio, // Added
+        formatCurrency(item.preco_custo),
         item.margem_lucro + "%",
-        new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(item.comissao_ml),
-        new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(item.valor_frete),
-        new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(item.valor_lucro || 0),
-        new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(item.preco_venda_recomendado || 0),
+        formatCurrency(item.comissao_ml),
+        formatCurrency(item.valor_frete),
+        formatCurrency(item.valor_lucro || 0),
+        formatCurrency(item.preco_venda_recomendado || 0),
       ]);
 
       autoTable(doc, {
@@ -66,7 +66,7 @@ export default function ReportDownload() {
         body: tableRows,
         startY: 20,
         theme: "grid",
-        styles: { fontSize: 8 },
+        styles: { fontSize: 8, cellPadding: 2 }, // Compact styles
         headStyles: { fillColor: [22, 163, 74] },
       });
 
@@ -91,15 +91,15 @@ export default function ReportDownload() {
             " " +
             new Date(item.created_at).toLocaleTimeString("pt-BR"),
           "SKU/MLB": item.sku_mlb,
-          "Valor Atual": item.valor_atual,
+          "Valor Atual (R$)": item.valor_atual,
           "Tipo Anuncio": item.tipo_anuncio,
           "Tipo Envio": item.tipo_envio,
-          "Preço Custo": item.preco_custo,
+          "Preço Custo (R$)": item.preco_custo,
           "Margem Lucro (%)": item.margem_lucro,
-          "Comissão ML": item.comissao_ml,
-          "Valor Frete Cobrado": item.valor_frete,
-          "Lucro R$": item.valor_lucro,
-          "Preço Venda Rec.": item.preco_venda_recomendado,
+          "Comissão ML (R$)": item.comissao_ml,
+          "Valor Frete (R$)": item.valor_frete,
+          "Lucro Estimado (R$)": item.valor_lucro,
+          "Preço Recomendado (R$)": item.preco_venda_recomendado,
         })),
       );
 
