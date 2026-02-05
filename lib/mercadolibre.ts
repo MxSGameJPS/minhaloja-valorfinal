@@ -214,6 +214,7 @@ export async function getListingFee(
   price: number,
   listingTypeId: string,
   categoryId: string,
+  accessToken?: string,
 ): Promise<number> {
   const type = listingTypeId
     .toLowerCase()
@@ -223,27 +224,26 @@ export async function getListingFee(
   // endpoint: /sites/MLB/listing_prices?price={price}&listing_type_id={type}&category_id={cat}
   const url = `${BASE_URL}/sites/MLB/listing_prices?price=${price}&listing_type_id=${type}&category_id=${categoryId}`;
 
-  console.log(
-    `Calculating Fee: Price=${price}, Type=${type}, Cat=${categoryId}`,
-  );
+  // console.log(`Calculating Fee: Price=${price}, Type=${type}, Cat=${categoryId}`);
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${process.env.ML_ACCESS_TOKEN_FALLBACK || ""}`, // We don't have access token here easily without passing it.
-        // But wait, the function didn't accept accessToken.
-        // Let's rely on public access or pass simple headers.
-        // Better: implement fallback logic if 0.
-      },
-    });
+    const headers: any = {};
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const res = await fetch(url, { headers });
 
     if (!res.ok) {
-      console.error("Fee error:", await res.text());
+      console.warn(
+        `Fee calc failed (Status ${res.status}). Using fallback. Details:`,
+        await res.text(),
+      );
       return getFallbackFee(listingTypeId);
     }
 
     const data = await res.json();
-    console.log("Fee Data:", JSON.stringify(data));
+    // console.log("Fee Data:", JSON.stringify(data));
 
     let fee = 0;
     // Check structure. Sometimes it returns an array [ { listing_type_id, sale_fee_amount } ]

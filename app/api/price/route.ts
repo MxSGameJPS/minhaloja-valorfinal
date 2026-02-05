@@ -63,7 +63,12 @@ export async function POST(request: Request) {
     }
 
     // 4. Determine Fee
-    const refFee = await getListingFee(100, listing_type_id, category_id);
+    const refFee = await getListingFee(
+      100,
+      listing_type_id,
+      category_id,
+      accessToken,
+    );
     const feeRate = refFee / 100;
 
     // 5. Calculate Suggested Price
