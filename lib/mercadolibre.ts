@@ -355,6 +355,11 @@ export async function updateItemPrice(
     };
   }
 
+  console.log(
+    `Sending update to ${url} with body:`,
+    JSON.stringify(body, null, 2),
+  );
+
   const res = await fetch(url, {
     method: "PUT",
     headers: {
@@ -366,6 +371,8 @@ export async function updateItemPrice(
 
   if (!res.ok) {
     const errorData = await res.json();
+    console.error("Update failed with body:", JSON.stringify(body));
+    console.error("Error response:", JSON.stringify(errorData));
     throw new Error(`Failed to update price: ${JSON.stringify(errorData)}`);
   }
 }
