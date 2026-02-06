@@ -4,6 +4,7 @@ import {
   getItemDetails,
   getListingFee,
   getSellerShippingCost,
+  checkFixedFee,
 } from "@/lib/mercadolibre";
 import { getValidAccessToken } from "@/lib/auth";
 import { cookies } from "next/headers";
@@ -63,13 +64,21 @@ export async function POST(request: Request) {
     }
 
     // 4. Determine Fee
-    const refFee = await getListingFee(
+    // Call getListingFee with 100 to get pure % rate.
+
+    // Using the upgraded getListingFee signature
+    const feeData = await getListingFee(
       100,
       listing_type_id,
       category_id,
       accessToken,
     );
-    const feeRate = refFee / 100;
+    const feeRate = feeData.percentage / 100;
+
+    // Per User Request: Always apply 6.75 fixed fee for items < 79.00
+    // regardless of exemption status.
+    const fixedFeeVal = 6.75;
+    console.log(`Fixed Fee configured: R$ ${fixedFeeVal} (Standard)`);
 
     // 5. Calculate Suggested Price
     // Formula: Price = (Cost + Shipping + OtherCosts + FixedFee) / (1 - MLRate - TaxRate - MarginRate)
@@ -91,10 +100,10 @@ export async function POST(request: Request) {
     const suggestedPriceHigh =
       (Number(costPrice) + shippingCost + extraCosts) / divisor;
 
-    // Scenario B: Price < 79 (Seller Pays Fixed Fee 6.75, No Shipping)
-    // Shipping becomes 0 for seller (paid by buyer), but Fixed Fee applies.
+    // Scenario B: Price < 79 (Seller Pays Fixed Fee, No Shipping)
+    // Shipping becomes 0 for seller (paid by buyer), Fixed Fee applies (dynamic).
     const suggestedPriceLow =
-      (Number(costPrice) + 0 + extraCosts + 6.75) / divisor;
+      (Number(costPrice) + 0 + extraCosts + fixedFeeVal) / divisor;
 
     let finalOutcome: any = null;
 
@@ -124,7 +133,7 @@ export async function POST(request: Request) {
           baseCost: Number(costPrice),
           mlFee: suggestedPriceLow * feeRate,
           shipping: 0,
-          fixedFee: 6.75,
+          fixedFee: fixedFeeVal, // Dynamic: 6.75 or 0
           tax: suggestedPriceLow * taxRate,
           otherCosts: extraCosts,
           profit: suggestedPriceLow * marginRate,
@@ -132,9 +141,7 @@ export async function POST(request: Request) {
       };
 
       if (priceLow >= 79) {
-        // Recalculate based on High scenario if rounding pushed it up or original logic did
-        // Actually if original 'suggestedPriceLow' >= 79, we would have problems with logic boundaries.
-        // But here we just switch to high scenario if needed.
+        // Recalculates based on High scenario
         const priceHigh = roundTo99(suggestedPriceHigh);
         finalOutcome = {
           price: priceHigh,

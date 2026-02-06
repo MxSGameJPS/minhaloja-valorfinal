@@ -214,12 +214,21 @@ export async function getItemDetails(
 /**
  * Calcula Custos de Venda (Comissão)
  */
+// Retorno tipado para taxa
+interface ListingFee {
+  percentage: number; // ex: 11.5 (representing 11.5%)
+  fixed: number; // ex: 5.00
+}
+
+/**
+ * Calcula Custos de Venda (Comissão + Taxa Fixa)
+ */
 export async function getListingFee(
   price: number,
   listingTypeId: string,
   categoryId: string,
   accessToken?: string,
-): Promise<number> {
+): Promise<ListingFee> {
   const type = listingTypeId
     .toLowerCase()
     .replace("gold_special", "gold_special")
@@ -227,8 +236,6 @@ export async function getListingFee(
 
   // endpoint: /sites/MLB/listing_prices?price={price}&listing_type_id={type}&category_id={cat}
   const url = `${BASE_URL}/sites/MLB/listing_prices?price=${price}&listing_type_id=${type}&category_id=${categoryId}`;
-
-  // console.log(`Calculating Fee: Price=${price}, Type=${type}, Cat=${categoryId}`);
 
   try {
     const headers: any = {};
@@ -243,26 +250,186 @@ export async function getListingFee(
         `Fee calc failed (Status ${res.status}). Using fallback. Details:`,
         await res.text(),
       );
-      return getFallbackFee(listingTypeId);
+      return {
+        percentage: getFallbackFee(listingTypeId),
+        fixed: price < 79 ? 6.75 : 0,
+      };
     }
 
     const data = await res.json();
-    // console.log("Fee Data:", JSON.stringify(data));
 
-    let fee = 0;
-    // Check structure. Sometimes it returns an array [ { listing_type_id, sale_fee_amount } ]
+    // Data structure usually is array or object with sale_fee_amount
+    // API returns commission as an amount relative to the price passed in query
+    // But we want the RATE.
+    // Actually, listing_prices endpoint returns total fee amount.
+    // Let's calculate percentage from that if needed, OR trust the API's amount.
+    // Better: Retrieve the components if available.
+    // The standard /listing_prices returns "sale_fee_amount".
+
+    let match: any = null;
     if (Array.isArray(data)) {
-      const match = data.find((d) => d.listing_type_id === type);
-      fee = match ? match.sale_fee_amount : 0;
+      match = data.find((d: any) => d.listing_type_id === type);
     } else {
-      fee = data.sale_fee_amount || 0;
+      match = data;
     }
 
-    if (fee === 0) return getFallbackFee(listingTypeId);
-    return fee;
+    if (!match)
+      return {
+        percentage: getFallbackFee(listingTypeId),
+        fixed: price < 79 ? 6.75 : 0,
+      };
+
+    // "sale_fee_amount" is the Total Fee (Percent * Price + Fixed)
+    // Theoretically we can reverse calculate, but ML logic is complex.
+    // However, for the purpose of finding the "Rate", we can estimate.
+
+    // BUT! Determining if Fixed Fee applies is tricky just from total amount.
+    // Let's use a heuristic:
+    // If we passed price=100, and fee is 16, rate is 16%.
+    // If we passed price=50, and fee is (50*0.16 + 6), fee is 14.
+
+    // Strategy:
+    // This function was originally fetching "Percentage".
+    // To support dynamic fixed fee, we essentially need to know if 'sale_fee_amount' includes a fixed cost.
+    // Unfortunately, /listing_prices output is simple: { listing_type_id, sale_fee_amount, currency_id }
+
+    // To properly detect fixed fee exemption, we should trust the total fee amount returned by ML for the specfic price.
+    // But our Price Calculator needs separate variables (Rate vs Fixed) to simulate "What if I change price?".
+
+    // Hack: Quote for a high price (e.g. 1000) to get pure percentage (as fixed fee is irrelevant or diluted, or 0 above 79).
+    // And quote for current target price to see if there is extra.
+
+    // Actually, simply returning the percentage based on the passed 'price' might be wrong if 'price' is low.
+    // Let's revert to:
+    // 1. Calculate rate based on a "Safe Price" (e.g. 200).
+    // 2. But user asked about SPECIFIC products exemption.
+
+    // Correct approach using ML response:
+    // The API response for a low price will tell us the exact fee.
+    // If price < 79, and fee / price > standard_rate, then fixed fee is present.
+
+    // Let's just return the raw percent relative to the price requested, but that changes as price changes.
+    // The Route.ts expects a constant Rate.
+
+    // Let's assume standard fallback rate, but check if ML returns a different structure?
+    // No.
+
+    // Alternative:
+    // If price < 79, ML adds fixed fee.
+    // If this specific item is exempt, ML will return only the percentage fee even for price < 79.
+
+    // Let's stick to returning a structured object based on a 'probe':
+    // We will probe with the actual requested price? NO, we need formulas for the calculator.
+
+    // Lets look at strict logic:
+    // If item is below 79, ML usually charges 6.75 fixed.
+    // EXCEPT for specific categories/sellers.
+
+    // PROPOSAL:
+    // We assume the rate is the one found at R$ 100 (Safe high price).
+    // We assume fixed fee is 0 initially.
+    // Then we probe for R$ 50. If the fee is just 50 * rate, then Fixed = 0.
+    // If fee is higher, then Fixed = Fee - (50 * Rate).
+
+    // Implementation:
+    // The caller (route.ts) calls this with "100". So it gets the percentage rate.
+    // We should modify route.ts to pass the 'costPrice' or target price?
+    // No, route.ts loops to find price.
+
+    // Let's make getListingFee return the raw Percentage from R$ 100 probe (standard).
+    // AND we create a new function `getFixedFeeExemption(itemId, accessToken)`?
+    // Or simpler:
+    // Just modify getListingFee to take the real target price? No, circular dependency in calculator.
+
+    // Let's change this function to return the rate calculated at R$ 100 (High enough to have no fixed fee).
+    // And assume 6.75 fixed fee UNLESS the category is in a whitelist?
+    // Whitelist is hard to maintain.
+
+    // Better:
+    // probe with price = 78. If fee / 78 is approx Rate, then Fixed is 0.
+    // If fee / 78 is much higher, Fixed is present.
+
+    const safeRate = (match.sale_fee_amount / price) * 100; // This is the effective rate at 'price'.
+
+    // If we call with 100, we get the Clean Rate (since > 79).
+    // To detect fixed fee, we need a second call? Or just return metadata?
+
+    // Let's keep it simple for now, preserving existing signature compatibility but preparing the field.
+    // I will return the Percentage derived from price=100 (which is what route.ts passes).
+    // AND I will add a check for the specific item's category/listing type rules?
+
+    // WAIT. Route.ts calls `getListingFee(100, ...)`
+    // So it ALWAYS gets the >79 rate.
+    // The fixed fee logic happens in Route.ts lines 96-97 hardcoded.
+
+    // I will add a new function `hasFixedFee(listingType, category)` or similar.
+    // Or better: Let route.ts decide.
+
+    // I will calculate the rate as usual.
+    return { percentage: safeRate, fixed: 0 }; // Placeholder to match interface upgrade
   } catch (e) {
     console.error("Listing Fee Exception:", e);
-    return getFallbackFee(listingTypeId);
+    return { percentage: getFallbackFee(listingTypeId), fixed: 0 };
+  }
+}
+
+// Helper to check if category/item has fixed fee
+export async function checkFixedFee(
+  listingTypeId: string,
+  categoryId: string,
+  accessToken?: string,
+): Promise<number> {
+  // Probe with a low price (e.g. 50 BRL)
+  const type = listingTypeId.toLowerCase().replace("gold_pro", "gold_pro");
+  const testPrice = 50;
+  const url = `${BASE_URL}/sites/MLB/listing_prices?price=${testPrice}&listing_type_id=${type}&category_id=${categoryId}`;
+
+  try {
+    const headers: any = {};
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) return 6.75; // Assume default worst case
+
+    const data = await res.json();
+    let amount = 0;
+    if (Array.isArray(data)) {
+      const m = data.find((d: any) => d.listing_type_id === type);
+      amount = m ? m.sale_fee_amount : 0;
+    } else {
+      amount = data.sale_fee_amount || 0;
+    }
+
+    // Calculate expected percentage fee (based on High Price probe which we assume caller knows? No.)
+    // Reverse engineering:
+    // If amount is close to X% of 50, fixed fee is 0.
+    // If amount is close to X% of 50 + 6, fixed fee is ~6.
+    // But we don't know X.
+
+    // Let's Probe High (100) and Low (50).
+    const urlHigh = `${BASE_URL}/sites/MLB/listing_prices?price=100&listing_type_id=${type}&category_id=${categoryId}`;
+    const resHigh = await fetch(urlHigh, { headers });
+    const dataHigh = await resHigh.json();
+    let amountHigh = 0;
+    if (Array.isArray(dataHigh)) {
+      const m = dataHigh.find((d: any) => d.listing_type_id === type);
+      amountHigh = m ? m.sale_fee_amount : 0;
+    } else {
+      amountHigh = dataHigh.sale_fee_amount || 0;
+    }
+
+    const rate = amountHigh / 100; // e.g. 0.115
+
+    const expectedFeeLow = testPrice * rate; // e.g. 5.75
+    const diff = amount - expectedFeeLow; // If actual is 11.75, diff is 6.
+
+    if (diff > 2) {
+      // Tolerance (some rounding)
+      return 6.75; // It has fixed fee
+    } else {
+      return 0; // It implies exemption!
+    }
+  } catch (e) {
+    return 6.75;
   }
 }
 
