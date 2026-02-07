@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Smile Pet Valor Final",
-  description: "Calculadora de preço para produtos Smile Pet",
+  title: "MinhaLoja(SuaMarcaAqui) Valor Final",
+  description: "Calculadora de preço para produtos MinhaLoja(SuaMarcaAqui)",
 };
 
 export default function RootLayout({

@@ -17,7 +17,8 @@ export default async function Home() {
       <div className="max-w-4xl w-full space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-extrabold text-blue-900 tracking-tight">
-            SmilePet <span className="text-yellow-500">ValorFinal</span>
+            MinhaLoja(SuaMarcaAqui){" "}
+            <span className="text-yellow-500">ValorFinal</span>
           </h1>
           <p className="mt-2 text-lg text-gray-600">
             Sistema de Precificação Inteligente para Mercado Livre
@@ -52,8 +53,8 @@ export default async function Home() {
         )}
 
         <footer className="text-center text-gray-400 text-sm mt-12">
-          &copy; {new Date().getFullYear()} SmilePet. Todos os direitos
-          reservados.
+          &copy; {new Date().getFullYear()} MinhaLoja(SuaMarcaAqui). Todos os
+          direitos reservados.
         </footer>
       </div>
     </main>
