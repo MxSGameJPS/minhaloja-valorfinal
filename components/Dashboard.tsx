@@ -18,8 +18,17 @@ export default function Dashboard() {
         <h2 className="text-2xl font-bold text-gray-800">
           Calculadora de Preço
         </h2>
-        <div className="text-sm text-green-600 font-medium flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-green-500"></span> Conectado
+        <div className="flex items-center gap-4">
+          <a
+            href="/novo-anuncio"
+            className="text-sm bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+          >
+            + Novo Anúncio
+          </a>
+          <div className="text-sm text-green-600 font-medium flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-green-500"></span>{" "}
+            Conectado
+          </div>
         </div>
       </div>
       <PriceCalculator onCalculationComplete={handleCalculationComplete} />

@@ -641,3 +641,31 @@ export async function updateItemPrice(
     );
   }
 }
+
+/**
+ * Busca produtos no catálogo do ML
+ */
+export async function searchCatalogProduct(
+  query: string,
+  accessToken: string,
+): Promise<any[]> {
+  // Busca no catálogo oficial (Produtos)
+  const url = `${BASE_URL}/products/search?status=active&site_id=MLB&q=${query}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) {
+      console.error("Catalog Search Failed: " + res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    return data.results || [];
+  } catch (e) {
+    console.error("Catalog Search Error:", e);
+    return [];
+  }
+}
