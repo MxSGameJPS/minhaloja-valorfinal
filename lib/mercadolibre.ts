@@ -669,3 +669,26 @@ export async function searchCatalogProduct(
     return [];
   }
 }
+
+/**
+ * Cria um anúncio (Item) no Mercado Livre
+ */
+export async function createMelItem(body: any, accessToken: string) {
+  const url = `${BASE_URL}/items`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(JSON.stringify(err));
+  }
+
+  return res.json();
+}

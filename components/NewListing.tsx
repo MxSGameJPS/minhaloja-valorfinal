@@ -61,12 +61,36 @@ export default function NewListing() {
   };
 
   const handleCreate = async () => {
+    if (!product) return;
     setLoading(true);
-    // Simulação de criação
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const res = await fetch("/api/catalog/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: product.id,
+          price: formData.price,
+          stock: formData.stock,
+          listingType: formData.listingType,
+          createPremiumToo: formData.createPremiumToo,
+          format: formData.format,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao criar anúncio");
+      }
+
       setStep(3);
-    }, 2000);
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao criar anúncio: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
