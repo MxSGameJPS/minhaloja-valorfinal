@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getValidAccessToken } from "@/lib/auth";
-import { createMelItem, getItemDetails } from "@/lib/mercadolibre";
+import { createMelItem } from "@/lib/mercadolibre";
 
 export async function POST(request: Request) {
   try {
@@ -27,8 +27,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const createdItems = [];
-    const errors = [];
+    const createdItems: any[] = [];
+    const errors: any[] = [];
 
     // Helper para criar item
     const create = async (payload: any, label: string) => {
