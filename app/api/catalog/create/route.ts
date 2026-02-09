@@ -70,9 +70,6 @@ export async function POST(request: Request) {
           try {
             const predRes = await fetch(
               `https://api.mercadolibre.com/sites/MLB/search?limit=1&q=${encodeURIComponent(productTitle)}`,
-              {
-                headers: { Authorization: `Bearer ${accessToken}` },
-              },
             );
 
             if (predRes.ok) {
