@@ -45,6 +45,7 @@ export async function POST(request: Request) {
     let categoryId = "";
     let productTitle = "";
     let productPictures: any[] = [];
+    let isCatalogRequired = false;
 
     try {
       const prodRes = await fetch(
@@ -53,51 +54,67 @@ export async function POST(request: Request) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
+
       if (prodRes.ok) {
         const prodData = await prodRes.json();
         console.log("DEBUG PRODUCT DATA:", JSON.stringify(prodData)); // DEBUG
-        categoryId = prodData.category_id;
+
+        const domainId = prodData.domain_id;
+        const listingStrategy = prodData.settings?.listing_strategy;
+
+        // Atribuições
+        isCatalogRequired = listingStrategy === "catalog_required";
         productTitle = prodData.name;
         productPictures = prodData.pictures || [];
+        categoryId = prodData.category_id || ""; // Se vier do produto, ótimo (mas catálogo geralmente não tem)
 
-        // Version: Search Fallback (Step 353)
-
-        if (!categoryId && productTitle) {
-          console.log(
-            "Category ID ausente. Tentando preditor de categoria para:",
-            productTitle,
-          );
+        // 1. Resolver category_id via domínio (Estratégia Robusta)
+        if (!categoryId && domainId) {
+          console.log(`Resolvendo categoria para domínio: ${domainId}`);
           try {
-            // Tentar endpoint /items/ para pegar category_id (mais robusto que busca)
-            const itemRes = await fetch(
-              `https://api.mercadolibre.com/items/${productId}`,
+            const domainRes = await fetch(
+              `https://api.mercadolibre.com/catalog_domains/${domainId}`,
               {
                 headers: { Authorization: `Bearer ${accessToken}` },
               },
             );
 
-            if (itemRes.ok) {
-              const itemData = await itemRes.json();
-              console.log("DEBUG ITEM DATA:", JSON.stringify(itemData)); // DEBUG
-              categoryId = itemData.category_id;
-              console.log("Category ID recuperado via /items:", categoryId);
+            if (domainRes.ok) {
+              const domainData = await domainRes.json();
+              categoryId = domainData.main_category_id; // Pega a categoria principal do domínio
+              console.log("Category ID recuperado via domínio:", categoryId);
             } else {
               console.error(
-                "Fallback /items retornou erro:",
-                itemRes.status,
-                await itemRes.text(),
+                "Erro ao buscar domínio:",
+                domainRes.status,
+                await domainRes.text(),
               );
             }
-          } catch (predErr) {
-            console.error("Falha no preditor de categoria:", predErr);
+          } catch (err) {
+            console.error("Falha ao resolver domínio:", err);
           }
         }
 
         if (!categoryId) {
           console.error(
-            "ALERTA: category_id veio vazio do produto de catálogo!",
+            "ALERTA CRÍTICO: Não foi possível determinar a category_id via produto ou domínio!",
+          );
+          // Opcional: Lançar erro aqui para interromper
+        }
+
+        // 2. Verificar estratégia de catálogo
+        const listingStrategy = prodData.settings?.listing_strategy;
+        const isCatalogRequired = listingStrategy === "catalog_required";
+
+        if (isCatalogRequired) {
+          console.log(
+            "AVISO: Este produto EXIGE catálogo (catalog_required). Anúncios tradicionais podem falhar ou ser proibidos.",
           );
         }
+
+        console.log(
+          `Preparando criação. ProductId: ${productId}, CategoryId: ${categoryId}, Title: ${productTitle}`,
+        );
       } else {
         throw new Error(
           "Falha ao obter dados do produto de catálogo: " +
@@ -108,10 +125,6 @@ export async function POST(request: Request) {
       console.error("Erro ao buscar detalhes do produto:", e);
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
-
-    console.log(
-      `Preparando criação. ProductId: ${productId}, CategoryId: ${categoryId}, Title: ${productTitle}`,
-    ); // DEBUG
 
     // 1. Identificar tipos a serem criados (Clássico e/ou Premium)
     const typesToCreate = [listingType];
@@ -156,26 +169,38 @@ export async function POST(request: Request) {
 
       // FORMATO: TRADICIONAL
       if (format === "traditional_only" || format === "both") {
-        const payload = {
-          title: productTitle,
-          category_id: categoryId,
-          available_quantity: Number(stock),
-          price: finalPrice,
-          currency_id: "BRL",
-          buying_mode: "buy_it_now",
-          listing_type_id: type,
-          condition: "new",
-          catalog_listing: false,
-          catalog_product_id: productId,
-          pictures: productPictures.map((p: any) => ({ source: p.url })),
-          shipping: { mode: "me2", local_pick_up: false, free_shipping: false },
-        };
-        console.log(
-          `PAYLOAD TRADICIONAL (${typeLabel}):`,
-          JSON.stringify(payload),
-        ); // DEBUG
+        // TRADICIONAL (Apenas se não for catalog_required ou se quisermos arriscar)
+        // A recomendação é não criar tradicional se for catalog_required
+        if (!isCatalogRequired) {
+          const payload = {
+            title: productTitle, // Tradicional precisa de título explicito
+            available_quantity: Number(stock),
+            price: finalPrice,
+            currency_id: "BRL",
+            buying_mode: "buy_it_now",
+            listing_type_id: type,
+            condition: "new",
+            catalog_listing: false, // Não é Catálogo
+            catalog_product_id: productId, // Linka ao produto mas cria item normal
+            category_id: categoryId,
+            pictures: productPictures.map((p: any) => ({ source: p.url })),
+            shipping: {
+              mode: "me2",
+              local_pick_up: false,
+              free_shipping: false,
+            },
+          };
+          console.log(
+            `PAYLOAD TRADICIONAL (${typeLabel}):`,
+            JSON.stringify(payload),
+          ); // DEBUG
 
-        await create(payload, `Tradicional (${typeLabel})`);
+          await create(payload, `Tradicional (${typeLabel})`);
+        } else {
+          console.warn(
+            `PULANDO criação Tradicional pois o produto ${productId} é catalog_required.`,
+          );
+        }
       }
     }
 
