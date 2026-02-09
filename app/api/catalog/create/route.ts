@@ -72,9 +72,9 @@ export async function POST(request: Request) {
         if (!categoryId && domainId) {
           console.log(`Resolvendo categoria para domínio: ${domainId}`);
           try {
-            // Endpoint correto: /domains/{id}/categories retorna array de categorias
+            // Endpoint: /catalog_domains/{domain_id}/categories
             const domainRes = await fetch(
-              `https://api.mercadolibre.com/domains/${domainId}/categories`,
+              `https://api.mercadolibre.com/catalog_domains/${domainId}/categories`,
               {
                 headers: { Authorization: `Bearer ${accessToken}` },
               },
