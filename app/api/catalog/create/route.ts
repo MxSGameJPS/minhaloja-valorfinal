@@ -60,6 +60,8 @@ export async function POST(request: Request) {
         productTitle = prodData.name;
         productPictures = prodData.pictures || [];
 
+        // Version: Search Fallback (Step 353)
+
         if (!categoryId && productTitle) {
           console.log(
             "Category ID ausente. Tentando preditor de categoria para:",
