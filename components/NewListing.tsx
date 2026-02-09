@@ -75,6 +75,7 @@ export default function NewListing() {
           listingType: formData.listingType,
           createPremiumToo: formData.createPremiumToo,
           format: formData.format,
+          ean: query, // Passa o EAN digitado pelo usuário
         }),
       });
 

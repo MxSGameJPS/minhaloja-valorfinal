@@ -5,8 +5,15 @@ import { createMelItem } from "@/lib/mercadolibre";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { productId, price, stock, listingType, createPremiumToo, format } =
-      body;
+    const {
+      productId,
+      price,
+      stock,
+      listingType,
+      createPremiumToo,
+      format,
+      ean,
+    } = body;
 
     // listingType: "gold_special" (Clássico) | "gold_pro" (Premium)
     // format: "catalog_only" | "traditional_only" | "both"
@@ -150,7 +157,7 @@ export async function POST(request: Request) {
 
       // FORMATO: CATÁLOGO
       if (format === "catalog_only" || format === "both") {
-        const payload = {
+        const payload: any = {
           title: productTitle,
           category_id: categoryId,
           available_quantity: Number(stock),
@@ -167,6 +174,11 @@ export async function POST(request: Request) {
             free_shipping: false,
           },
         };
+
+        // Adicionar EAN se fornecido
+        if (ean) {
+          payload.attributes = [{ id: "GTIN", value_name: ean }];
+        }
         console.log(
           `PAYLOAD CATÁLOGO (${typeLabel}):`,
           JSON.stringify(payload),
@@ -176,38 +188,36 @@ export async function POST(request: Request) {
 
       // FORMATO: TRADICIONAL
       if (format === "traditional_only" || format === "both") {
-        // TRADICIONAL (Apenas se não for catalog_required ou se quisermos arriscar)
-        // A recomendação é não criar tradicional se for catalog_required
-        if (!isCatalogRequired) {
-          const payload = {
-            title: productTitle, // Tradicional precisa de título explicito
-            available_quantity: Number(stock),
-            price: finalPrice,
-            currency_id: "BRL",
-            buying_mode: "buy_it_now",
-            listing_type_id: type,
-            condition: "new",
-            catalog_listing: false, // Não é Catálogo
-            catalog_product_id: productId, // Linka ao produto mas cria item normal
-            category_id: categoryId,
-            pictures: productPictures.map((p: any) => ({ source: p.url })),
-            shipping: {
-              mode: "me2",
-              local_pick_up: false,
-              free_shipping: false,
-            },
-          };
-          console.log(
-            `PAYLOAD TRADICIONAL (${typeLabel}):`,
-            JSON.stringify(payload),
-          ); // DEBUG
+        const payload: any = {
+          title: productTitle,
+          available_quantity: Number(stock),
+          price: finalPrice,
+          currency_id: "BRL",
+          buying_mode: "buy_it_now",
+          listing_type_id: type,
+          condition: "new",
+          catalog_listing: false, // Não é Catálogo
+          catalog_product_id: productId,
+          category_id: categoryId,
+          pictures: productPictures.map((p: any) => ({ source: p.url })),
+          shipping: {
+            mode: "me2",
+            local_pick_up: false,
+            free_shipping: false,
+          },
+        };
 
-          await create(payload, `Tradicional (${typeLabel})`);
-        } else {
-          console.warn(
-            `PULANDO criação Tradicional pois o produto ${productId} é catalog_required.`,
-          );
+        // Adicionar EAN se fornecido
+        if (ean) {
+          payload.attributes = [{ id: "GTIN", value_name: ean }];
         }
+
+        console.log(
+          `PAYLOAD TRADICIONAL (${typeLabel}):`,
+          JSON.stringify(payload),
+        ); // DEBUG
+
+        await create(payload, `Tradicional (${typeLabel})`);
       }
     }
 
