@@ -41,6 +41,33 @@ export async function POST(request: Request) {
       }
     };
 
+    // 0. Buscar detalhes do Produto de Catálogo para obter category_id e title
+    let categoryId = "";
+    let productTitle = "";
+    let productPictures: any[] = [];
+
+    try {
+      const prodRes = await fetch(
+        `https://api.mercadolibre.com/products/${productId}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (prodRes.ok) {
+        const prodData = await prodRes.json();
+        categoryId = prodData.category_id;
+        productTitle = prodData.name;
+        productPictures = prodData.pictures || [];
+      } else {
+        throw new Error(
+          "Falha ao obter dados do produto de catálogo: " +
+            (await prodRes.text()),
+        );
+      }
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
+
     // 1. Identificar tipos a serem criados (Clássico e/ou Premium)
     const typesToCreate = [listingType];
     if (createPremiumToo) {
@@ -52,32 +79,27 @@ export async function POST(request: Request) {
     // 2. Loop pelos tipos (Clássico / Premium)
     for (const type of typesToCreate) {
       const typeLabel = type === "gold_special" ? "Clássico" : "Premium";
-
-      // Ajuste de preço para Premium se necessário? (Opcional, por enquanto mantemos igual)
-      // Se fosse real, poderíamos aumentar N% se for premium.
       const finalPrice = Number(price);
 
       // 3. Loop pelos formatos (Catálogo / Tradicional)
+
       // FORMATO: CATÁLOGO
       if (format === "catalog_only" || format === "both") {
         const payload = {
-          title: "", // Not needed for catalog listing usually? Actually ML requires title even for catalog link sometimes, but usually ignores it if linked.
-          // BUT for catalog_listing: true, we MUST allow ML to infer data.
-          // Correct payload for connecting to catalog:
+          title: productTitle,
+          category_id: categoryId,
           available_quantity: Number(stock),
           price: finalPrice,
           currency_id: "BRL",
           buying_mode: "buy_it_now",
           listing_type_id: type,
           condition: "new",
-          catalog_listing: true, // CRITICAL
-          catalog_product_id: productId, // CRITICAL
-          // Shipping is mandatory. Default to user preferences or "me2" (Mercado Envios)
+          catalog_listing: true,
+          catalog_product_id: productId,
           shipping: {
             mode: "me2",
             local_pick_up: false,
-            free_shipping: false, // Will be overriden by ML business rules based on price
-            // We can't easily force free shipping boolean without method rules, but ML calculates meaningful default.
+            free_shipping: false,
           },
         };
         await create(payload, `Catálogo (${typeLabel})`);
@@ -85,48 +107,18 @@ export async function POST(request: Request) {
 
       // FORMATO: TRADICIONAL
       if (format === "traditional_only" || format === "both") {
-        // Para criar tradicional a partir do catálogo, a melhor prática é:
-        // 1. Obter detalhes do produto de catálogo para preencher o payload
-        // ou 2. Tentar enviar catalog_product_id mas catalog_listing: false?
-        // Documentação diz que catalog_product_id associa, mas se catalog_listing for false (ou omitido), vira item normal associado.
-
-        // Vamos tentar a abordagem mais simples que o ML recomenda:
-        // Enviar catalog_product_id faz o "link" (match), mas sem catalog_listing=true, ele não compete na buybox PRINCIPAL, vira um item na lista "Outras opções".
-        // Porém, para garantir titulos e fotos, o ideal é pegar do produto.
-        // Mas como estamos no backend, não temos o objeto 'product' completo aqui, só o ID.
-        // Vamos confiar que o ML puxa os dados se passarmos 'catalog_product_id'.
-        // SE FALHAR (erro "title required"), significa que precisamos fornecer.
-
-        // Vamos tentar fornecer o mínimo. Se falhar, o frontend já mandou os dados? Não, o frontend só mandou ID.
-        // Vamos fazer um fetch rápido nos detalhes do produto se precisarmos do titulo?
-        // Mas não temos endpoint "get catalog product detail" na lib ainda, temos search.
-
-        // ESTRATÉGIA: Tentar criar com catalog_product_id e catalog_listing: false.
-        // Se der erro de validação (ex: Title required), teremos que implementar busca de detalhes.
-        // Testes mostram que geralmente precisa de Título e Fotos.
-
-        // Workaround rápido: O usuário confia que é "aquele" produto.
-        // O payload deve ter Title?
-        // Vamos supor que precisamos.
-        // Vou usar 'catalog_product_id' e setar title = "Item ...". Não, ficaria feio.
-
-        // Vamos permitir que criação falhe se não tiver titulo?
-        // Melhor: O frontend DEVERIA enviar o título que ele achou.
-
-        // VOU MODIFICAR O REQUEST NO FRONTEND PARA ENVIAR O TÍTULO TAMBÉM.
-        // Mas como não posso mudar o frontend AGORA (estou no backend step), vou assumir que o Catalog Link preenche tudo.
-
-        // Se não preencher, a API vai retornar erro.
-
         const payload = {
+          title: productTitle,
+          category_id: categoryId,
           available_quantity: Number(stock),
           price: finalPrice,
           currency_id: "BRL",
           buying_mode: "buy_it_now",
           listing_type_id: type,
           condition: "new",
-          catalog_listing: false, // TRADICIONAL
+          catalog_listing: false,
           catalog_product_id: productId,
+          pictures: productPictures.map((p: any) => ({ source: p.url })),
           shipping: { mode: "me2", local_pick_up: false, free_shipping: false },
         };
 
