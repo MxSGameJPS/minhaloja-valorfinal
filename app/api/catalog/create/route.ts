@@ -72,20 +72,29 @@ export async function POST(request: Request) {
         if (!categoryId && domainId) {
           console.log(`Resolvendo categoria para domínio: ${domainId}`);
           try {
+            // Endpoint correto: /domains/{id}/categories retorna array de categorias
             const domainRes = await fetch(
-              `https://api.mercadolibre.com/catalog_domains/${domainId}`,
+              `https://api.mercadolibre.com/domains/${domainId}/categories`,
               {
                 headers: { Authorization: `Bearer ${accessToken}` },
               },
             );
 
             if (domainRes.ok) {
-              const domainData = await domainRes.json();
-              categoryId = domainData.main_category_id; // Pega a categoria principal do domínio
+              const categories = await domainRes.json();
+              console.log(
+                "DEBUG DOMAIN CATEGORIES:",
+                JSON.stringify(categories),
+              ); // DEBUG
+
+              // Pega o ID da primeira categoria retornada
+              if (Array.isArray(categories) && categories.length > 0) {
+                categoryId = categories[0].id;
+              }
               console.log("Category ID recuperado via domínio:", categoryId);
             } else {
               console.error(
-                "Erro ao buscar domínio:",
+                "Erro ao buscar categorias do domínio:",
                 domainRes.status,
                 await domainRes.text(),
               );
