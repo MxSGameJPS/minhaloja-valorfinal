@@ -71,7 +71,14 @@ export async function POST(request: Request) {
             );
             if (predRes.ok) {
               const predData = await predRes.json();
-              categoryId = predData.id;
+              console.log("DEBUG PREDITOR DATA:", JSON.stringify(predData)); // DEBUG
+
+              if (Array.isArray(predData) && predData.length > 0) {
+                categoryId = predData[0].id;
+              } else if (predData && predData.id) {
+                categoryId = predData.id;
+              }
+
               console.log("Category ID recuperado via preditor:", categoryId);
             }
           } catch (predErr) {
