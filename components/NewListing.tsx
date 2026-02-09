@@ -133,7 +133,7 @@ export default function NewListing() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Ex: 7891234567890"
-                  className="flex-1 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-lg"
+                  className="flex-1 p-4 bg-white border border-gray-400 text-gray-900 placeholder-gray-500 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-lg"
                   required
                 />
                 <button
@@ -211,7 +211,7 @@ export default function NewListing() {
                     onChange={(e) =>
                       setFormData({ ...formData, price: e.target.value })
                     }
-                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    className="w-full p-3 bg-white border border-gray-400 text-gray-900 placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-green-500"
                     placeholder="0,00"
                   />
                 </div>
@@ -225,7 +225,7 @@ export default function NewListing() {
                     onChange={(e) =>
                       setFormData({ ...formData, stock: e.target.value })
                     }
-                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 bg-white border border-gray-400 text-gray-900 placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
