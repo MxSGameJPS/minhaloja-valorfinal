@@ -102,9 +102,7 @@ export async function POST(request: Request) {
           // Opcional: Lançar erro aqui para interromper
         }
 
-        // 2. Verificar estratégia de catálogo
-        const listingStrategy = prodData.settings?.listing_strategy;
-        const isCatalogRequired = listingStrategy === "catalog_required";
+        // 2. Verificar estratégia de catálogo (já calculado acima)
 
         if (isCatalogRequired) {
           console.log(
