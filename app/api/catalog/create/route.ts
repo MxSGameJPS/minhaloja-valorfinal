@@ -5,20 +5,32 @@ import { createMelItem } from "@/lib/mercadolibre";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { productId, price, stock, listingType, createPremiumToo, format } = body;
+    const { productId, price, stock, listingType, createPremiumToo, format } =
+      body;
+
+    // listingType: "gold_special" (Clássico) | "gold_pro" (Premium)
+    // format: "catalog_only" | "traditional_only" | "both"
 
     if (!productId || !price || !stock) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
     const accessToken = await getValidAccessToken();
+
     if (!accessToken) {
-      return NextResponse.json({ error: "Unauthorized. Please login with Mercado Livre." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized. Please login with Mercado Livre." },
+        { status: 401 },
+      );
     }
 
     const createdItems: any[] = [];
     const errors: any[] = [];
 
+    // Helper para criar item
     const create = async (payload: any, label: string) => {
       try {
         const res = await createMelItem(payload, accessToken);
@@ -29,89 +41,141 @@ export async function POST(request: Request) {
       }
     };
 
+    // 0. Buscar detalhes do Produto de Catálogo para obter category_id e title
     let categoryId = "";
     let productTitle = "";
     let productPictures: any[] = [];
 
-    // 0. Buscar detalhes do Produto de Catálogo
     try {
-      const prodRes = await fetch(`https://api.mercadolibre.com/products/${productId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
+      const prodRes = await fetch(
+        `https://api.mercadolibre.com/products/${productId}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
       if (prodRes.ok) {
         const prodData = await prodRes.json();
+        console.log("DEBUG PRODUCT DATA:", JSON.stringify(prodData)); // DEBUG
         categoryId = prodData.category_id;
         productTitle = prodData.name;
         productPictures = prodData.pictures || [];
 
-        // FALLBACK 1: Se category_id for nulo, mas tiver domain_id (Comum em rações)
-        if (!categoryId && prodData.domain_id) {
-          console.log("Tentando recuperar categoria via domain_id:", prodData.domain_id);
-          const domainRes = await fetch(`https://api.mercadolibre.com/catalog_domains/${prodData.domain_id}`);
-          if (domainRes.ok) {
-            const domainData = await domainRes.json();
-            categoryId = domainData.category_id;
-          }
-        }
+        // Version: Search Fallback (Step 353)
 
-        // FALLBACK 2: Se ainda estiver vazio, usar o Predictor de Categorias baseado no título
         if (!categoryId && productTitle) {
-          console.log("Usando Predictor de Categoria para:", productTitle);
-          const predictRes = await fetch(`https://api.mercadolibre.com/sites/MLB/category_predictor/predict?title=${encodeURIComponent(productTitle)}`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (predictRes.ok) {
-            const predictData = await predictRes.json();
-            categoryId = predictData.id;
+          console.log(
+            "Category ID ausente. Tentando preditor de categoria para:",
+            productTitle,
+          );
+          try {
+            // Tentar endpoint /items/ para pegar category_id (mais robusto que busca)
+            const itemRes = await fetch(
+              `https://api.mercadolibre.com/items/${productId}`,
+              {
+                headers: { Authorization: `Bearer ${accessToken}` },
+              },
+            );
+
+            if (itemRes.ok) {
+              const itemData = await itemRes.json();
+              console.log("DEBUG ITEM DATA:", JSON.stringify(itemData)); // DEBUG
+              categoryId = itemData.category_id;
+              console.log("Category ID recuperado via /items:", categoryId);
+            } else {
+              console.error(
+                "Fallback /items retornou erro:",
+                itemRes.status,
+                await itemRes.text(),
+              );
+            }
+          } catch (predErr) {
+            console.error("Falha no preditor de categoria:", predErr);
           }
         }
 
         if (!categoryId) {
-          throw new Error("Não foi possível determinar a category_id para este produto.");
+          console.error(
+            "ALERTA: category_id veio vazio do produto de catálogo!",
+          );
         }
       } else {
-        throw new Error("Falha ao obter produto de catálogo: " + prodRes.status);
+        throw new Error(
+          "Falha ao obter dados do produto de catálogo: " +
+            (await prodRes.text()),
+        );
       }
     } catch (e: any) {
+      console.error("Erro ao buscar detalhes do produto:", e);
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
 
-    // 1. Identificar tipos a serem criados
+    console.log(
+      `Preparando criação. ProductId: ${productId}, CategoryId: ${categoryId}, Title: ${productTitle}`,
+    ); // DEBUG
+
+    // 1. Identificar tipos a serem criados (Clássico e/ou Premium)
     const typesToCreate = [listingType];
     if (createPremiumToo) {
-      typesToCreate.push(listingType === "gold_special" ? "gold_pro" : "gold_special");
+      const otherType =
+        listingType === "gold_special" ? "gold_pro" : "gold_special";
+      typesToCreate.push(otherType);
     }
 
-    // 2. Loop de Criação
+    // 2. Loop pelos tipos (Clássico / Premium)
     for (const type of typesToCreate) {
       const typeLabel = type === "gold_special" ? "Clássico" : "Premium";
-      
-      // Payloads comuns
-      const basePayload = {
-        title: productTitle,
-        category_id: categoryId,
-        available_quantity: Number(stock),
-        price: Number(price),
-        currency_id: "BRL",
-        buying_mode: "buy_it_now",
-        listing_type_id: type,
-        condition: "new",
-        shipping: { mode: "me2", local_pick_up: false, free_shipping: false },
-      };
+      const finalPrice = Number(price);
 
+      // 3. Loop pelos formatos (Catálogo / Tradicional)
+
+      // FORMATO: CATÁLOGO
       if (format === "catalog_only" || format === "both") {
-        const catalogPayload = { ...basePayload, catalog_listing: true, catalog_product_id: productId };
-        await create(catalogPayload, `Catálogo (${typeLabel})`);
+        const payload = {
+          title: productTitle,
+          category_id: categoryId,
+          available_quantity: Number(stock),
+          price: finalPrice,
+          currency_id: "BRL",
+          buying_mode: "buy_it_now",
+          listing_type_id: type,
+          condition: "new",
+          catalog_listing: true,
+          catalog_product_id: productId,
+          shipping: {
+            mode: "me2",
+            local_pick_up: false,
+            free_shipping: false,
+          },
+        };
+        console.log(
+          `PAYLOAD CATÁLOGO (${typeLabel}):`,
+          JSON.stringify(payload),
+        ); // DEBUG
+        await create(payload, `Catálogo (${typeLabel})`);
       }
 
+      // FORMATO: TRADICIONAL
       if (format === "traditional_only" || format === "both") {
-        const tradPayload = { 
-          ...basePayload, 
-          catalog_listing: false, 
-          pictures: productPictures.map((p: any) => ({ source: p.url || p.secure_url })) 
+        const payload = {
+          title: productTitle,
+          category_id: categoryId,
+          available_quantity: Number(stock),
+          price: finalPrice,
+          currency_id: "BRL",
+          buying_mode: "buy_it_now",
+          listing_type_id: type,
+          condition: "new",
+          catalog_listing: false,
+          catalog_product_id: productId,
+          pictures: productPictures.map((p: any) => ({ source: p.url })),
+          shipping: { mode: "me2", local_pick_up: false, free_shipping: false },
         };
-        await create(tradPayload, `Tradicional (${typeLabel})`);
+        console.log(
+          `PAYLOAD TRADICIONAL (${typeLabel}):`,
+          JSON.stringify(payload),
+        ); // DEBUG
+
+        await create(payload, `Tradicional (${typeLabel})`);
       }
     }
 
@@ -121,6 +185,7 @@ export async function POST(request: Request) {
       errors: errors,
     });
   } catch (error: any) {
+    console.error("Create API Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
