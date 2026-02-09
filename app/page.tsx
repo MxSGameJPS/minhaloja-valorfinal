@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import Dashboard from "@/components/Dashboard";
+import LogoutButton from "@/components/LogoutButton";
 
 export default async function Home() {
   const cookieStore = await cookies();
@@ -49,7 +50,13 @@ export default async function Home() {
             </Link>
           </div>
         ) : (
-          <Dashboard />
+          <div className="space-y-4">
+            {/* Botão de Logout */}
+            <div className="flex justify-end">
+              <LogoutButton />
+            </div>
+            <Dashboard />
+          </div>
         )}
 
         <footer className="text-center text-gray-400 text-sm mt-12">
