@@ -68,7 +68,11 @@ export async function POST(request: Request) {
           try {
             const predRes = await fetch(
               `https://api.mercadolibre.com/sites/MLB/category_predictor/predict?title=${encodeURIComponent(productTitle)}`,
+              {
+                headers: { Authorization: `Bearer ${accessToken}` },
+              },
             );
+
             if (predRes.ok) {
               const predData = await predRes.json();
               console.log("DEBUG PREDITOR DATA:", JSON.stringify(predData)); // DEBUG
@@ -80,6 +84,12 @@ export async function POST(request: Request) {
               }
 
               console.log("Category ID recuperado via preditor:", categoryId);
+            } else {
+              console.error(
+                "Preditor retornou status erro:",
+                predRes.status,
+                await predRes.text(),
+              );
             }
           } catch (predErr) {
             console.error("Falha no preditor de categoria:", predErr);
