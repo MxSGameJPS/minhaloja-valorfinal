@@ -67,7 +67,7 @@ export async function POST(request: Request) {
           );
           try {
             const predRes = await fetch(
-              `https://api.mercadolibre.com/sites/MLB/domain_discovery/search?limit=1&q=${encodeURIComponent(productTitle)}`,
+              `https://api.mercadolibre.com/sites/MLB/search?limit=1&q=${encodeURIComponent(productTitle)}`,
               {
                 headers: { Authorization: `Bearer ${accessToken}` },
               },
@@ -75,16 +75,16 @@ export async function POST(request: Request) {
 
             if (predRes.ok) {
               const predData = await predRes.json();
-              console.log("DEBUG PREDITOR DATA:", JSON.stringify(predData)); // DEBUG
+              console.log("DEBUG SEARCH DATA:", JSON.stringify(predData)); // DEBUG
 
-              if (Array.isArray(predData) && predData.length > 0) {
-                categoryId = predData[0].category_id;
+              if (predData.results && predData.results.length > 0) {
+                categoryId = predData.results[0].category_id;
               }
 
-              console.log("Category ID recuperado via preditor:", categoryId);
+              console.log("Category ID recuperado via busca:", categoryId);
             } else {
               console.error(
-                "Preditor retornou status erro:",
+                "Busca de fallback retornou status erro:",
                 predRes.status,
                 await predRes.text(),
               );
