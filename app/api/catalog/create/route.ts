@@ -60,6 +60,25 @@ export async function POST(request: Request) {
         productTitle = prodData.name;
         productPictures = prodData.pictures || [];
 
+        if (!categoryId && productTitle) {
+          console.log(
+            "Category ID ausente. Tentando preditor de categoria para:",
+            productTitle,
+          );
+          try {
+            const predRes = await fetch(
+              `https://api.mercadolibre.com/sites/MLB/category_predictor/predict?title=${encodeURIComponent(productTitle)}`,
+            );
+            if (predRes.ok) {
+              const predData = await predRes.json();
+              categoryId = predData.id;
+              console.log("Category ID recuperado via preditor:", categoryId);
+            }
+          } catch (predErr) {
+            console.error("Falha no preditor de categoria:", predErr);
+          }
+        }
+
         if (!categoryId) {
           console.error(
             "ALERTA: category_id veio vazio do produto de catálogo!",
