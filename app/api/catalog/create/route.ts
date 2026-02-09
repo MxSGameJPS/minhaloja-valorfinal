@@ -55,9 +55,16 @@ export async function POST(request: Request) {
       );
       if (prodRes.ok) {
         const prodData = await prodRes.json();
+        console.log("DEBUG PRODUCT DATA:", JSON.stringify(prodData)); // DEBUG
         categoryId = prodData.category_id;
         productTitle = prodData.name;
         productPictures = prodData.pictures || [];
+
+        if (!categoryId) {
+          console.error(
+            "ALERTA: category_id veio vazio do produto de catálogo!",
+          );
+        }
       } else {
         throw new Error(
           "Falha ao obter dados do produto de catálogo: " +
@@ -65,8 +72,13 @@ export async function POST(request: Request) {
         );
       }
     } catch (e: any) {
+      console.error("Erro ao buscar detalhes do produto:", e);
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
+
+    console.log(
+      `Preparando criação. ProductId: ${productId}, CategoryId: ${categoryId}, Title: ${productTitle}`,
+    ); // DEBUG
 
     // 1. Identificar tipos a serem criados (Clássico e/ou Premium)
     const typesToCreate = [listingType];
@@ -102,6 +114,10 @@ export async function POST(request: Request) {
             free_shipping: false,
           },
         };
+        console.log(
+          `PAYLOAD CATÁLOGO (${typeLabel}):`,
+          JSON.stringify(payload),
+        ); // DEBUG
         await create(payload, `Catálogo (${typeLabel})`);
       }
 
@@ -121,6 +137,10 @@ export async function POST(request: Request) {
           pictures: productPictures.map((p: any) => ({ source: p.url })),
           shipping: { mode: "me2", local_pick_up: false, free_shipping: false },
         };
+        console.log(
+          `PAYLOAD TRADICIONAL (${typeLabel}):`,
+          JSON.stringify(payload),
+        ); // DEBUG
 
         await create(payload, `Tradicional (${typeLabel})`);
       }
