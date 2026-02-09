@@ -52,6 +52,7 @@ export async function POST(request: Request) {
     let categoryId = "";
     let productTitle = "";
     let productPictures: any[] = [];
+    let productAttributes: any[] = [];
     let isCatalogRequired = false;
 
     try {
@@ -73,6 +74,14 @@ export async function POST(request: Request) {
         isCatalogRequired = listingStrategy === "catalog_required";
         productTitle = prodData.name;
         productPictures = prodData.pictures || [];
+
+        // Extrair atributos do produto de catálogo para usar no tradicional
+        productAttributes = (prodData.attributes || []).map((attr: any) => ({
+          id: attr.id,
+          value_id: attr.value_id,
+          value_name: attr.value_name,
+        }));
+
         categoryId = prodData.category_id || ""; // Se vier do produto, ótimo (mas catálogo geralmente não tem)
 
         // 1. Resolver category_id via domínio (Estratégia Robusta)
@@ -188,8 +197,20 @@ export async function POST(request: Request) {
 
       // FORMATO: TRADICIONAL
       if (format === "traditional_only" || format === "both") {
+        // Truncar título para 60 caracteres (limite de algumas categorias)
+        const truncatedTitle =
+          productTitle.length > 60
+            ? productTitle.substring(0, 57) + "..."
+            : productTitle;
+
+        // Combinar atributos do produto com EAN
+        const allAttributes = [...productAttributes];
+        if (ean) {
+          allAttributes.push({ id: "GTIN", value_name: ean });
+        }
+
         const payload: any = {
-          title: productTitle,
+          title: truncatedTitle,
           available_quantity: Number(stock),
           price: finalPrice,
           currency_id: "BRL",
@@ -200,17 +221,13 @@ export async function POST(request: Request) {
           catalog_product_id: productId,
           category_id: categoryId,
           pictures: productPictures.map((p: any) => ({ source: p.url })),
+          attributes: allAttributes, // Atributos obrigatórios do produto de catálogo
           shipping: {
             mode: "me2",
             local_pick_up: false,
             free_shipping: false,
           },
         };
-
-        // Adicionar EAN se fornecido
-        if (ean) {
-          payload.attributes = [{ id: "GTIN", value_name: ean }];
-        }
 
         console.log(
           `PAYLOAD TRADICIONAL (${typeLabel}):`,
