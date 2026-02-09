@@ -67,7 +67,7 @@ export async function POST(request: Request) {
           );
           try {
             const predRes = await fetch(
-              `https://api.mercadolibre.com/sites/MLB/category_predictor/predict?title=${encodeURIComponent(productTitle)}`,
+              `https://api.mercadolibre.com/sites/MLB/domain_discovery/search?limit=1&q=${encodeURIComponent(productTitle)}`,
               {
                 headers: { Authorization: `Bearer ${accessToken}` },
               },
@@ -78,9 +78,7 @@ export async function POST(request: Request) {
               console.log("DEBUG PREDITOR DATA:", JSON.stringify(predData)); // DEBUG
 
               if (Array.isArray(predData) && predData.length > 0) {
-                categoryId = predData[0].id;
-              } else if (predData && predData.id) {
-                categoryId = predData.id;
+                categoryId = predData[0].category_id;
               }
 
               console.log("Category ID recuperado via preditor:", categoryId);
